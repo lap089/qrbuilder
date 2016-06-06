@@ -24,6 +24,12 @@ import com.skrymer.qrbuilder.exception.UnreadableDataException;
 import javax.imageio.ImageIO;
 
 import static com.skrymer.qrbuilder.util.SyntacticSugar.throwIllegalArgumentExceptionIfEmpty;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
+import java.util.Hashtable;
 
 /**
  * QRCBuilder implementation using the ZXing library to generate a qrCode as a  BufferedImage
@@ -144,7 +150,7 @@ public class ZXingQRCodeBuilder implements QRCBuilder<BufferedImage> {
     private Map<EncodeHintType, Object> getEncodeHints() {
         Map<EncodeHintType, Object> encodeHints = new HashMap<EncodeHintType, Object>();
         encodeHints.put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.H);
-
+        encodeHints.put(EncodeHintType.CHARACTER_SET, "utf-8");
         return encodeHints;
     }
 
@@ -158,8 +164,26 @@ public class ZXingQRCodeBuilder implements QRCBuilder<BufferedImage> {
     private BufferedImage encode() {
         BufferedImage qrcode;
 
+         Charset charset = Charset.forName("UTF-8");
+    CharsetEncoder encoder = charset.newEncoder();
+    byte[] b = null;
+    
+     try {
+        // Convert a string to UTF-8 bytes in a ByteBuffer
+        ByteBuffer bbuf = encoder.encode(CharBuffer.wrap(data));
+        b = bbuf.array();
+    } catch (CharacterCodingException e) {
+        System.out.println(e.getMessage());
+    }
+    
         try {
-            BitMatrix matrix = new QRCodeWriter().encode(data, BarcodeFormat.QR_CODE, this.width, this.height, getEncodeHints());
+          //  BitMatrix matrix = new QRCodeWriter().encode(data, BarcodeFormat.QR_CODE, this.width, this.height, getEncodeHints());
+            data = new String(b, "ISO-8859-1");
+            com.google.zxing.Writer writer = new MultiFormatWriter();
+            Hashtable<EncodeHintType, String> hints = new Hashtable<EncodeHintType, String>(2);
+            hints.put(EncodeHintType.CHARACTER_SET, "ISO-8859-1");
+            BitMatrix matrix = writer.encode(data,
+            com.google.zxing.BarcodeFormat.QR_CODE, this.width, this.height, hints);
             qrcode = MatrixToImageWriter.toBufferedImage(matrix);
         } catch (Exception e) {
             throw new CouldNotCreateQRCodeException("QRCode could not be generated", e.getCause());
